@@ -1,123 +1,78 @@
 <!DOCTYPE html>
 <html lang="pt-BR">
-  <head>
-    <meta charset="UTF-8" />
-    <meta
-      name="viewport"
-      content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no"
-    />
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>PROTOCOLO DE TREINO v2</title>
     <script src="https://cdn.jsdelivr.net/npm/@tailwindcss/browser@4"></script>
-    <script
-      defer
-      src="https://cdn.jsdelivr.net/npm/alpinejs@3.x.x/dist/cdn.min.js"
-    ></script>
-    <link
-      href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700;900&display=swap"
-      rel="stylesheet"
-    />
-    <style>
-      body {
-        font-family: 'Inter', sans-serif;
-        -webkit-tap-highlight-color: transparent;
-      }
-      [x-cloak] {
-        display: none !important;
-      }
-    </style>
+    <script defer src="https://cdn.jsdelivr.net/npm/alpinejs@3.x.x/dist/cdn.min.js"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700;900&display=swap" rel="stylesheet">
+    <style> body { font-family: 'Inter', sans-serif; -webkit-tap-highlight-color: transparent; } [x-cloak] { display: none !important; } </style>
 
     <script type="module">
-      import { auth, db } from './firebase.js';
-      import {
-        signInWithEmailAndPassword,
-        createUserWithEmailAndPassword,
-        signOut,
-        onAuthStateChanged,
-      } from 'https://www.gstatic.com/firebasejs/10.8.0/firebase-auth.js';
-      import {
-        doc,
-        setDoc,
-        getDoc,
-      } from 'https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js';
+        import { auth, db } from './firebase.js';
+        import { signInWithEmailAndPassword, createUserWithEmailAndPassword, signOut, onAuthStateChanged } from 'https://www.gstatic.com/firebasejs/10.8.0/firebase-auth.js';
+        import { doc, setDoc, getDoc } from 'https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js';
 
-      onAuthStateChanged(auth, async (usuario) => {
-        const painel = document.getElementById('app-root');
-        let listaSemanas = [];
+        onAuthStateChanged(auth, async (usuario) => {
+            const painel = document.getElementById('app-root');
+            let listaSemanas = [];
 
-        if (usuario) {
-          const EMAIL_PROFESSOR = 'lucasdominguespessoal@gmail.com';
-          const isProf =
-            usuario.email.toLowerCase() === EMAIL_PROFESSOR.toLowerCase();
+            if (usuario) {
+                const EMAIL_PROFESSOR = 'lucasdominguespessoal@gmail.com';
+                const isProf = (usuario.email.toLowerCase() === EMAIL_PROFESSOR.toLowerCase());
 
-          if (!isProf) {
-            try {
-              const docRef = doc(
-                db,
-                'planilhas',
-                usuario.email.toLowerCase().trim()
-              );
-              const docSnap = await getDoc(docRef);
-              if (docSnap.exists() && docSnap.data().semanas) {
-                listaSemanas = docSnap.data().semanas;
-              }
-            } catch (e) {
-              console.error('Erro Firestore:', e);
-            }
-          }
+                if (!isProf) {
+                    try {
+                        const docRef = doc(db, "planilhas", usuario.email.toLowerCase().trim());
+                        const docSnap = await getDoc(docRef);
+                        if (docSnap.exists() && docSnap.data().semanas) {
+                            listaSemanas = docSnap.data().semanas;
+                        }
+                    } catch (e) { console.error("Erro Firestore:", e); }
+                }
 
-          const atualizarAlpine = () => {
-            if (painel && painel.__x) {
-              painel.__x.$data.user = usuario;
-              painel.__x.$data.isProfessor = isProf;
-              painel.__x.$data.planilha = listaSemanas;
-              painel.__x.$data.semanaAtiva = 0;
-              painel.__x.$data.inicializado = true;
+                const atualizarAlpine = () => {
+                    if (painel && painel.__x) {
+                        painel.__x.$data.user = usuario;
+                        painel.__x.$data.isProfessor = isProf;
+                        painel.__x.$data.planilha = listaSemanas;
+                        painel.__x.$data.semanaAtiva = 0;
+                        painel.__x.$data.inicializado = true;
+                    } else { setTimeout(atualizarAlpine, 30); }
+                };
+                atualizarAlpine();
             } else {
-              setTimeout(atualizarAlpine, 30);
+                if (painel && painel.__x) {
+                    painel.__x.$data.user = null;
+                    painel.__x.$data.isProfessor = false;
+                    painel.__x.$data.planilha = [];
+                    painel.__x.$data.inicializado = true;
+                }
             }
-          };
-          atualizarAlpine();
-        } else {
-          if (painel && painel.__x) {
-            painel.__x.$data.user = null;
-            painel.__x.$data.isProfessor = false;
-            painel.__x.$data.planilha = [];
-            painel.__x.$data.inicializado = true;
-          }
-        }
-      });
+        });
 
-      window.executarLoginNuvem = (email, senha) =>
-        signInWithEmailAndPassword(auth, email, senha);
-      window.executarCadastroNuvem = (email, senha) =>
-        createUserWithEmailAndPassword(auth, email, senha);
-      window.executarDesconexao = () => signOut(auth);
-
-      window.salvarPlanilhaNuvem = async (atleta, dados) => {
-        const ref = doc(db, 'planilhas', atleta.toLowerCase().trim());
-        const snap = await getDoc(ref);
-        let atuais = [];
-        if (snap.exists() && snap.data().semanas) {
-          atuais = snap
-            .data()
-            .semanas.filter((s) => String(s.semana) !== String(dados.semana));
-        }
-        atuais.unshift(dados);
-        return setDoc(ref, { semanas: atuais }, { merge: true });
-      };
-
-      window.salvarFeedbackNuvem = (diaId, dados) =>
-        setDoc(
-          doc(db, 'feedback_alunos', diaId),
-          { ...dados, enviadoEm: new Date().toISOString() },
-          { merge: true }
-        );
+        window.executarLoginNuvem = (email, senha) => signInWithEmailAndPassword(auth, email, sender);
+        window.executarCadastroNuvem = (email, senha) => createUserWithEmailAndPassword(auth, email, senha);
+        window.executarDesconexao = () => signOut(auth);
+        
+        window.salvarPlanilhaNuvem = async (atleta, dados) => {
+            const ref = doc(db, "planilhas", atleta.toLowerCase().trim());
+            const snap = await getDoc(ref);
+            let atuais = [];
+            if (snap.exists() && snap.data().semanas) {
+                atuais = snap.data().semanas.filter(s => String(s.semana) !== String(dados.semana));
+            }
+            atuais.unshift(dados);
+            return setDoc(ref, { semanas: atuais }, { merge: true });
+        };
+        
+        window.salvarFeedbackNuvem = (diaId, dados) => setDoc(doc(db, "feedback_alunos", diaId), { ...dados, enviadoEm: new Date().toISOString() }, { merge: true });
     </script>
-  </head>
-  <body class="min-h-screen bg-neutral-950 text-neutral-50 pb-10">
-    <div
-      id="app-root"
-      x-data="{
+</head>
+<body class="min-h-screen bg-neutral-950 text-neutral-50 pb-10">
+
+    <div id="app-root" x-data="{
         inicializado: false, user: null, isProfessor: false, authModo: 'login',
         email: '', senha: '', erroMsg: '', sucessoMsg: '',
         semanaAtiva: 0, planilha: [], diaAtivoIndex: 0, respostas: {},
@@ -174,295 +129,126 @@
             localStorage.setItem('feedback_local_corrida', JSON.stringify(this.respostas));
             window.salvarFeedbackNuvem(id, this.respostas[id]);
         }
-    }"
-    >
-      <div
-        x-show="!inicializado"
-        class="fixed inset-0 bg-neutral-950 flex items-center justify-center z-50"
-      >
-        <div
-          class="w-8 h-8 border-4 border-amber-500 border-t-transparent rounded-full animate-spin"
-        ></div>
-      </div>
+    }">
 
-      <div x-show="inicializado" x-cloak>
-        <div x-show="!user" class="w-full max-w-md mx-auto pt-20 px-4">
-          <div
-            class="bg-neutral-900 border border-neutral-800 rounded-3xl p-6 shadow-2xl"
-          >
-            <div class="text-center mb-6">
-              <span
-                class="text-[10px] font-black uppercase tracking-widest text-amber-500 block"
-                >SISTEMA DE CORRIDA v2</span
-              >
-              <h2
-                class="text-2xl font-black tracking-tight mt-1"
-                x-text="authModo === 'login' ? 'Acessar Conta' : 'Criar Conta'"
-              ></h2>
-            </div>
-            <div class="space-y-4">
-              <input
-                type="email"
-                x-model="email"
-                placeholder="E-mail"
-                class="w-full bg-neutral-950 border border-neutral-800 py-3 px-4 rounded-xl text-white outline-none"
-              />
-              <input
-                type="password"
-                x-model="senha"
-                placeholder="Senha"
-                class="w-full bg-neutral-950 border border-neutral-800 py-3 px-4 rounded-xl text-white outline-none"
-              />
-              <div
-                x-show="erroMsg"
-                class="text-xs font-bold text-rose-500 bg-rose-500/10 p-3 rounded-xl"
-                x-text="erroMsg"
-              ></div>
-              <div
-                x-show="sucessoMsg"
-                class="text-xs font-bold text-emerald-500 bg-emerald-500/10 p-3 rounded-xl"
-                x-text="sucessoMsg"
-              ></div>
-              <button
-                @click="gerenciarAuth()"
-                class="w-full bg-amber-500 text-neutral-950 py-3.5 rounded-xl font-black text-xs uppercase tracking-widest cursor-pointer"
-              >
-                Confirmar
-              </button>
-              <button
-                @click="authModo = (authModo === 'login' ? 'cadastro' : 'login')"
-                class="w-full text-xs text-neutral-400 underline"
-                x-text="authModo === 'login' ? 'Não tem conta? Cadastre-se' : 'Já tem conta? Faça Login'"
-              ></button>
-            </div>
-          </div>
+        <div x-show="!inicializado" class="fixed inset-0 bg-neutral-950 flex items-center justify-center z-50">
+            <div class="w-8 h-8 border-4 border-amber-500 border-t-transparent rounded-full animate-spin"></div>
         </div>
 
-        <div x-show="user" x-cloak>
-          <div
-            class="w-full max-w-md mx-auto pt-4 px-4 flex justify-between items-center text-[10px] text-neutral-500 font-bold uppercase"
-          >
-            <span x-text="user?.email"></span>
-            <button
-              @click="window.executarDesconexao()"
-              class="text-rose-500 underline cursor-pointer"
-            >
-              Sair
-            </button>
-          </div>
-
-          <div
-            x-show="isProfessor"
-            class="w-full max-w-md mx-auto px-4 mt-4 space-y-4"
-          >
-            <div
-              class="bg-neutral-900 border border-neutral-800 rounded-3xl p-6 shadow-2xl"
-            >
-              <h2 class="text-xl font-black tracking-tight mb-4">
-                Prescrever Treino
-              </h2>
-              <div class="space-y-4">
-                <input
-                  type="text"
-                  x-model="profAtleta"
-                  placeholder="E-mail exato do Aluno"
-                  class="w-full bg-neutral-950 border border-neutral-800 p-3 rounded-xl text-xs text-white"
-                />
-                <div class="grid grid-cols-2 gap-2">
-                  <input
-                    type="text"
-                    x-model="profSemana"
-                    placeholder="Semana Nº"
-                    class="w-full bg-neutral-950 border border-neutral-800 p-3 rounded-xl text-xs text-white"
-                  />
-                  <input
-                    type="text"
-                    x-model="profPeriodo"
-                    placeholder="Período (Ex: 18/05 - 24/05)"
-                    class="w-full bg-neutral-950 border border-neutral-800 p-3 rounded-xl text-xs text-white"
-                  />
+        <div x-show="inicializado" x-cloak>
+            
+            <div x-show="!user" class="w-full max-w-md mx-auto pt-20 px-4">
+                <div class="bg-neutral-900 border border-neutral-800 rounded-3xl p-6 shadow-2xl">
+                    <div class="text-center mb-6">
+                        <span class="text-[10px] font-black uppercase tracking-widest text-amber-500 block">SISTEMA DE CORRIDA v2</span>
+                        <h2 class="text-2xl font-black tracking-tight mt-1" x-text="authModo === 'login' ? 'Acessar Conta' : 'Criar Conta'"></h2>
+                    </div>
+                    <div class="space-y-4">
+                        <input type="email" x-model="email" placeholder="E-mail" class="w-full bg-neutral-950 border border-neutral-800 py-3 px-4 rounded-xl text-white outline-none">
+                        <input type="password" x-model="senha" placeholder="Senha" class="w-full bg-neutral-950 border border-neutral-800 py-3 px-4 rounded-xl text-white outline-none">
+                        <div x-show="erroMsg" class="text-xs font-bold text-rose-500 bg-rose-500/10 p-3 rounded-xl" x-text="erroMsg"></div>
+                        <div x-show="sucessoMsg" class="text-xs font-bold text-emerald-500 bg-emerald-500/10 p-3 rounded-xl" x-text="sucessoMsg"></div>
+                        <button @click="gerenciarAuth()" class="w-full bg-amber-500 text-neutral-950 py-3.5 rounded-xl font-black text-xs uppercase tracking-widest cursor-pointer">Confirmar</button>
+                        <button @click="authModo = (authModo === 'login' ? 'cadastro' : 'login')" class="w-full text-xs text-neutral-400 underline" x-text="authModo === 'login' ? 'Não tem conta? Cadastre-se' : 'Já tem conta? Faça Login'"></button>
+                    </div>
                 </div>
-                <input
-                  type="text"
-                  x-model="profObjetivo"
-                  placeholder="Objetivo"
-                  class="w-full bg-neutral-950 border border-neutral-800 p-3 rounded-xl text-xs text-white"
-                />
-
-                <template x-for="(dia, idx) in profDias" :key="idx">
-                  <div
-                    class="p-3 bg-neutral-950 border border-neutral-800 rounded-xl space-y-2"
-                  >
-                    <span
-                      class="font-black text-amber-500 text-[10px]"
-                      x-text="dia.nome"
-                    ></span>
-                    <textarea
-                      placeholder="Comando de treino principal..."
-                      x-model="dia.principal"
-                      class="w-full bg-neutral-900 p-2 rounded-lg text-xs text-white h-16 resize-none outline-none"
-                    ></textarea>
-                  </div>
-                </template>
-
-                <div
-                  x-show="erroMsg"
-                  class="text-xs font-bold text-rose-500"
-                  x-text="erroMsg"
-                ></div>
-                <div
-                  x-show="sucessoMsg"
-                  class="text-xs font-bold text-emerald-500"
-                  x-text="sucessoMsg"
-                ></div>
-                <button
-                  @click="publicarPlanilha()"
-                  class="w-full bg-emerald-500 text-neutral-950 py-3 rounded-xl font-black uppercase tracking-widest text-xs cursor-pointer"
-                >
-                  🚀 Publicar na Nuvem
-                </button>
-              </div>
-            </div>
-          </div>
-
-          <div x-show="!isProfessor" class="w-full max-w-md mx-auto mt-2">
-            <div x-show="planilha.length === 0" class="px-4 pt-16 text-center">
-              <p class="text-xs font-medium text-neutral-400">
-                Nenhuma planilha ativa localizada para este e-mail.
-              </p>
             </div>
 
-            <div x-show="planilha.length > 0">
-              <header class="px-4 pt-4">
-                <div
-                  class="bg-neutral-900 border border-neutral-800 rounded-3xl p-6 shadow-2xl"
-                >
-                  <span
-                    class="text-[10px] font-black uppercase tracking-widest text-amber-500 block"
-                    >📋 PLANILHA DE CORRIDA</span
-                  >
-                  <div class="flex justify-between items-center mt-1">
-                    <h1
-                      class="text-xl font-black tracking-tight"
-                      x-text="'Semana ' + (planilha[semanaAtiva]?.semana || '1')"
-                    ></h1>
-                    <select
-                      x-model="semanaAtiva"
-                      class="bg-neutral-800 border border-neutral-700 text-[10px] font-bold p-1.5 rounded-lg text-white"
-                    >
-                      <template x-for="(s, i) in planilha" :key="i">
-                        <option
-                          :value="i"
-                          x-text="'Semana ' + s.semana"
-                        ></option>
-                      </template>
-                    </select>
-                  </div>
-                  <div
-                    class="flex justify-between items-center mt-3 pt-3 border-t border-neutral-800 text-xs"
-                  >
-                    <div>
-                      <span
-                        class="text-[9px] text-neutral-500 uppercase font-bold block"
-                        >Objetivo</span
-                      >
-                      <span
-                        class="font-bold text-xs"
-                        x-text="planilha[semanaAtiva]?.objetivo || 'TAF'"
-                      ></span>
-                    </div>
-                    <div class="text-right">
-                      <span
-                        class="text-[9px] text-neutral-500 uppercase font-bold block"
-                        >Período</span
-                      >
-                      <span
-                        class="font-bold text-xs"
-                        x-text="planilha[semanaAtiva]?.periodo || '-'"
-                      ></span>
-                    </div>
-                  </div>
+            <div x-show="user" x-cloak>
+                <div class="w-full max-w-md mx-auto pt-4 px-4 flex justify-between items-center text-[10px] text-neutral-500 font-bold uppercase">
+                    <span x-text="user?.email"></span>
+                    <button @click="window.executarDesconexao()" class="text-rose-500 underline cursor-pointer">Sair</button>
                 </div>
-              </header>
 
-              <nav class="px-4 mt-3">
-                <div
-                  class="bg-neutral-900 border border-neutral-800 p-1.5 rounded-2xl flex gap-1"
-                >
-                  <template
-                    x-for="(dia, index) in (planilha[semanaAtiva]?.dias || [])"
-                    :key="index"
-                  >
-                    <button
-                      @click="diaAtivoIndex = index"
-                      :class="diaAtivoIndex === index ? 'bg-amber-500 text-neutral-950 font-black' : 'text-neutral-400'"
-                      class="flex-1 py-2.5 rounded-xl text-center text-xs font-bold cursor-pointer flex flex-col items-center gap-1"
-                    >
-                      <span x-text="dia.nome.substring(0,3)"></span>
-                      <div
-                        class="w-1.5 h-1.5 rounded-full"
-                        :class="planilha[semanaAtiva]?.dias?.[index] && respostas[planilha[semanaAtiva].dias[index].id]?.status === 'Feito' ? 'bg-emerald-500' : planilha[semanaAtiva]?.dias?.[index] && respostas[planilha[semanaAtiva].dias[index].id]?.status === 'Adaptei' ? 'bg-amber-400' : planilha[semanaAtiva]?.dias?.[index] && respostas[planilha[semanaAtiva].dias[index].id]?.status === 'Off' ? 'bg-rose-500' : 'bg-neutral-800'"
-                      ></div>
-                    </button>
-                  </template>
-                </div>
-              </nav>
-
-              <main
-                class="px-4 mt-3"
-                x-show="planilha[semanaAtiva]?.dias?.[diaAtivoIndex]"
-              >
-                <div
-                  class="bg-neutral-900 border border-neutral-800 rounded-3xl p-5 space-y-4"
-                >
-                  <div
-                    class="p-4 bg-neutral-950 border border-neutral-800/60 rounded-2xl"
-                  >
-                    <span
-                      class="text-[9px] text-amber-500 font-black uppercase tracking-wider block mb-1"
-                      >Comando Principal</span
-                    >
-                    <p
-                      class="text-sm font-bold text-neutral-50 leading-relaxed whitespace-pre-line"
-                      x-text="planilha[semanaAtiva]?.dias?.[diaAtivoIndex]?.principal || 'Sem treino cadastrado'"
-                    ></p>
-                  </div>
-
-                  <div class="space-y-2">
-                    <span
-                      class="text-[9px] font-black text-neutral-500 uppercase block"
-                      >Status do Treino</span
-                    >
-                    <div class="grid grid-cols-3 gap-2">
-                      <button
-                        @click="planilha[semanaAtiva]?.dias?.[diaAtivoIndex] && toggleStatus(planilha[semanaAtiva].dias[diaAtivoIndex].id, 'Feito')"
-                        :class="planilha[semanaAtiva]?.dias?.[diaAtivoIndex] && respostas[planilha[semanaAtiva].dias[diaAtivoIndex].id]?.status === 'Feito' ? 'bg-emerald-500 text-neutral-950 font-black' : 'bg-neutral-950 text-neutral-400'"
-                        class="py-2.5 rounded-xl text-xs font-bold border border-neutral-800 cursor-pointer"
-                      >
-                        ✓ Feito
-                      </button>
-                      <button
-                        @click="planilha[semanaAtiva]?.dias?.[diaAtivoIndex] && toggleStatus(planilha[semanaAtiva].dias[diaAtivoIndex].id, 'Adaptei')"
-                        :class="planilha[semanaAtiva]?.dias?.[diaAtivoIndex] && respostas[planilha[semanaAtiva].dias[diaAtivoIndex].id]?.status === 'Adaptei' ? 'bg-amber-500 text-neutral-950 font-black' : 'bg-neutral-950 text-neutral-400'"
-                        class="py-2.5 rounded-xl text-xs font-bold border border-neutral-800 cursor-pointer"
-                      >
-                        ⚠️ Adaptei
-                      </button>
-                      <button
-                        @click="planilha[semanaAtiva]?.dias?.[diaAtivoIndex] && toggleStatus(planilha[semanaAtiva].dias[diaAtivoIndex].id, 'Off')"
-                        :class="planilha[semanaAtiva]?.dias?.[diaAtivoIndex] && respostas[planilha[semanaAtiva].dias[diaAtivoIndex].id]?.status === 'Off' ? 'bg-rose-500 text-white font-black' : 'bg-neutral-950 text-neutral-400'"
-                        class="py-2.5 rounded-xl text-xs font-bold border border-neutral-800 cursor-pointer"
-                      >
-                        💤 Off
-                      </button>
+                <div x-show="isProfessor" class="w-full max-w-md mx-auto px-4 mt-4 space-y-4">
+                    <div class="bg-neutral-900 border border-neutral-800 rounded-3xl p-6 shadow-2xl">
+                        <h2 class="text-xl font-black tracking-tight mb-4">Prescrever Treino</h2>
+                        <div class="space-y-4">
+                            <input type="text" x-model="profAtleta" placeholder="E-mail exato do Aluno" class="w-full bg-neutral-950 border border-neutral-800 p-3 rounded-xl text-xs text-white">
+                            <div class="grid grid-cols-2 gap-2">
+                                <input type="text" x-model="profSemana" placeholder="Semana Nº" class="w-full bg-neutral-950 border border-neutral-800 p-3 rounded-xl text-xs text-white">
+                                <input type="text" x-model="profPeriodo" placeholder="Período (Ex: 18/05 - 24/05)" class="w-full bg-neutral-950 border border-neutral-800 p-3 rounded-xl text-xs text-white">
+                            </div>
+                            <input type="text" x-model="profObjetivo" placeholder="Objetivo" class="w-full bg-neutral-950 border border-neutral-800 p-3 rounded-xl text-xs text-white">
+                            
+                            <template x-for="(dia, idx) in profDias" :key="idx">
+                                <div class="p-3 bg-neutral-950 border border-neutral-800 rounded-xl space-y-2">
+                                    <span class="font-black text-amber-500 text-[10px]" x-text="dia.nome"></span>
+                                    <textarea placeholder="Comando de treino principal..." x-model="dia.principal" class="w-full bg-neutral-900 p-2 rounded-lg text-xs text-white h-16 resize-none outline-none"></textarea>
+                                </div>
+                            </template>
+                            
+                            <div x-show="erroMsg" class="text-xs font-bold text-rose-500" x-text="erroMsg"></div>
+                            <div x-show="sucessoMsg" class="text-xs font-bold text-emerald-500" x-text="sucessoMsg"></div>
+                            <button @click="publicarPlanilha()" class="w-full bg-emerald-500 text-neutral-950 py-3 rounded-xl font-black uppercase tracking-widest text-xs cursor-pointer">🚀 Publicar na Nuvem</button>
+                        </div>
                     </div>
-                  </div>
                 </div>
-              </main>
+
+                <div x-show="!isProfessor" class="w-full max-w-md mx-auto mt-2">
+                    <div x-show="planilha.length === 0" class="px-4 pt-16 text-center">
+                        <p class="text-xs font-medium text-neutral-400">Nenhuma planilha ativa localizada para este e-mail.</p>
+                    </div>
+                    
+                    <div x-show="planilha.length > 0">
+                        <header class="px-4 pt-4">
+                            <div class="bg-neutral-900 border border-neutral-800 rounded-3xl p-6 shadow-2xl">
+                                <span class="text-[10px] font-black uppercase tracking-widest text-amber-500 block">📋 PLANILHA DE CORRIDA</span>
+                                <div class="flex justify-between items-center mt-1">
+                                    <h1 class="text-xl font-black tracking-tight" x-text="'Semana ' + (planilha[semanaAtiva]?.semana || '1')"></h1>
+                                    <select x-model="semanaAtiva" class="bg-neutral-800 border border-neutral-700 text-[10px] font-bold p-1.5 rounded-lg text-white">
+                                        <template x-for="(s, i) in planilha" :key="i">
+                                            <option :value="i" x-text="'Semana ' + s.semana"></option>
+                                        </template>
+                                    </select>
+                                </div>
+                                <div class="flex justify-between items-center mt-3 pt-3 border-t border-neutral-800 text-xs">
+                                    <div>
+                                        <span class="text-[9px] text-neutral-500 uppercase font-bold block">Objetivo</span>
+                                        <span class="font-bold text-xs" x-text="planilha[semanaAtiva]?.objetivo || 'TAF'"></span>
+                                    </div>
+                                    <div class="text-right">
+                                        <span class="text-[9px] text-neutral-500 uppercase font-bold block">Período</span>
+                                        <span class="font-bold text-xs" x-text="planilha[semanaAtiva]?.periodo || '-'"></span>
+                                    </div>
+                                </div>
+                            </div>
+                        </header>
+
+                        <nav class="px-4 mt-3">
+                            <div class="bg-neutral-900 border border-neutral-800 p-1.5 rounded-2xl flex gap-1">
+                                <template x-for="(dia, index) in (planilha[semanaAtiva]?.dias || [])" :key="index">
+                                    <button @click="diaAtivoIndex = index" :class="diaAtivoIndex === index ? 'bg-amber-500 text-neutral-950 font-black' : 'text-neutral-400'" class="flex-1 py-2.5 rounded-xl text-center text-xs font-bold cursor-pointer flex flex-col items-center gap-1">
+                                        <span x-text="dia.nome.substring(0,3)"></span>
+                                        <div class="w-1.5 h-1.5 rounded-full" :class="planilha[semanaAtiva]?.dias?.[index] && respostas[planilha[semanaAtiva].dias[index].id]?.status === 'Feito' ? 'bg-emerald-500' : planilha[semanaAtiva]?.dias?.[index] && respostas[planilha[semanaAtiva].dias[index].id]?.status === 'Adaptei' ? 'bg-amber-400' : planilha[semanaAtiva]?.dias?.[index] && respostas[planilha[semanaAtiva].dias[index].id]?.status === 'Off' ? 'bg-rose-500' : 'bg-neutral-800'"></div>
+                                    </button>
+                                </template>
+                            </div>
+                        </nav>
+
+                        <main class="px-4 mt-3" x-show="planilha[semanaAtiva]?.dias?.[diaAtivoIndex]">
+                            <div class="bg-neutral-900 border border-neutral-800 rounded-3xl p-5 space-y-4">
+                                <div class="p-4 bg-neutral-950 border border-neutral-800/60 rounded-2xl">
+                                    <span class="text-[9px] text-amber-500 font-black uppercase tracking-wider block mb-1">Comando Principal</span>
+                                    <p class="text-sm font-bold text-neutral-50 leading-relaxed whitespace-pre-line" x-text="planilha[semanaAtiva]?.dias?.[diaAtivoIndex]?.principal || 'Sem treino cadastrado'"></p>
+                                </div>
+
+                                <div class="space-y-2">
+                                    <span class="text-[9px] font-black text-neutral-500 uppercase block">Status do Treino</span>
+                                    <div class="grid grid-cols-3 gap-2">
+                                        <button @click="planilha[semanaAtiva]?.dias?.[diaAtivoIndex] && toggleStatus(planilha[semanaAtiva].dias[diaAtivoIndex].id, 'Feito')" :class="planilha[semanaAtiva]?.dias?.[diaAtivoIndex] && respostas[planilha[semanaAtiva].dias[diaAtivoIndex].id]?.status === 'Feito' ? 'bg-emerald-500 text-neutral-950 font-black' : 'bg-neutral-950 text-neutral-400'" class="py-2.5 rounded-xl text-xs font-bold border border-neutral-800 cursor-pointer">✓ Feito</button>
+                                        <button @click="planilha[semanaAtiva]?.dias?.[diaAtivoIndex] && toggleStatus(planilha[semanaAtiva].dias[diaAtivoIndex].id, 'Adaptei')" :class="planilha[semanaAtiva]?.dias?.[diaAtivoIndex] && respostas[planilha[semanaAtiva].dias[diaAtivoIndex].id]?.status === 'Adaptei' ? 'bg-amber-500 text-neutral-950 font-black' : 'bg-neutral-950 text-neutral-400'" class="py-2.5 rounded-xl text-xs font-bold border border-neutral-800 cursor-pointer">⚠️ Adaptei</button>
+                                        <button @click="planilha[semanaAtiva]?.dias?.[diaAtivoIndex] && toggleStatus(planilha[semanaAtiva].dias[diaAtivoIndex].id, 'Off')" :class="planilha[semanaAtiva]?.dias?.[diaAtivoIndex] && respostas[planilha[semanaAtiva].dias[diaAtivoIndex].id]?.status === 'Off' ? 'bg-rose-500 text-white font-black' : 'bg-neutral-950 text-neutral-400'" class="py-2.5 rounded-xl text-xs font-bold border border-neutral-800 cursor-pointer">💤 Off</button>
+                                    </div>
+                                </div>
+                            </div>
+                        </main>
+                    </div>
+                </div>
             </div>
-          </div>
+
         </div>
-      </div>
     </div>
-  </body>
+
+</body>
 </html>
