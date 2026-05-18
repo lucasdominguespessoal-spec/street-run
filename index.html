@@ -76,7 +76,6 @@
         inicializado: false, user: null, isProfessor: false, authModo: 'login',
         email: '', senha: '', erroMsg: '', sucessoMsg: '',
         semanaAtiva: 0, planilha: [], diaAtivoIndex: 0, respostas: {},
-
         profAtleta: '', profSemana: '1', profObjetivo: 'TAF 12 minutos', profPeriodo: '',
         profDias: [
             { id: 'seg', nome: 'SEGUNDA', principal: '' },
@@ -84,39 +83,27 @@
             { id: 'qui', nome: 'QUINTA', principal: '' },
             { id: 'sab', nome: 'SÁBADO', principal: '' }
         ],
-
         init() {
             const dadosLocais = localStorage.getItem('feedback_local_corrida');
             if (dadosLocais) this.respostas = JSON.parse(dadosLocais);
             setTimeout(() => { this.inicializado = true; }, 400);
         },
-
         async gerenciarAuth() {
-          this.erroMsg = ''; this.sucessoMsg = '';
-          if (!this.email || !this.senha) { this.erroMsg = 'Preencha os campos.'; return; }
-          try {
-              if (this.authModo === 'login') {
-                  await window.executarLoginNuvem(this.email, this.senha);
-              } else {
-                  await window.executarCadastroNuvem(this.email, this.senha);
-                  this.sucessoMsg = 'Conta criada! Mude para Login.';
-                  this.authModo = 'login';
-              }
-          } catch (err) { 
-              // Exibe o erro exato do Firebase na tela para sabermos o motivo
-              console.error("Erro Firebase Detalhado:", err);
-              if (err.message.includes("weak-password")) {
-                  this.erroMsg = "A senha deve ter pelo menos 6 caracteres.";
-              } else if (err.message.includes("invalid-credential") || err.message.includes("wrong-password")) {
-                  this.erroMsg = "E-mail ou senha incorretos.";
-              } else if (err.message.includes("email-already-in-use")) {
-                  this.erroMsg = "Este e-mail já está cadastrado. Tente fazer Login.";
-              } else {
-                  this.erroMsg = "Falha no Firebase: " + err.code; 
-              }
-          }
-      },
-
+            this.erroMsg = ''; this.sucessoMsg = '';
+            if (!this.email || !this.senha) { this.erroMsg = 'Preencha os campos.'; return; }
+            try {
+                if (this.authModo === 'login') {
+                    await window.executarLoginNuvem(this.email, this.senha);
+                } else {
+                    await window.executarCadastroNuvem(this.email, this.senha);
+                    this.sucessoMsg = 'Conta criada! Mude para Login.';
+                    this.authModo = 'login';
+                }
+            } catch (err) { 
+                console.error(err);
+                this.erroMsg = 'Erro de autenticação. Verifique os dados ou se a senha tem 6+ dígitos.';
+            }
+        },
         async publicarPlanilha() {
             this.erroMsg = ''; this.sucessoMsg = '';
             if (!this.profAtleta || !this.profSemana || !this.profPeriodo) { this.erroMsg = 'Preencha Atleta, Semana e Período.'; return; }
@@ -133,7 +120,6 @@
                 this.profDias.forEach(d => d.principal = '');
             } catch (e) { this.erroMsg = 'Erro ao salvar na nuvem.'; }
         },
-
         toggleStatus(id, valor) {
             if (!id) return;
             if (!this.respostas[id]) this.respostas[id] = { status: '' };
