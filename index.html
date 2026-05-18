@@ -92,18 +92,30 @@
         },
 
         async gerenciarAuth() {
-            this.erroMsg = ''; this.sucessoMsg = '';
-            if (!this.email || !this.senha) { this.erroMsg = 'Preencha os campos.'; return; }
-            try {
-                if (this.authModo === 'login') {
-                    await window.executarLoginNuvem(this.email, this.senha);
-                } else {
-                    await window.executarCadastroNuvem(this.email, this.senha);
-                    this.sucessoMsg = 'Conta criada! Mude para Login.';
-                    this.authModo = 'login';
-                }
-            } catch (err) { this.erroMsg = 'Dados incorretos ou erro de conexão.'; }
-        },
+          this.erroMsg = ''; this.sucessoMsg = '';
+          if (!this.email || !this.senha) { this.erroMsg = 'Preencha os campos.'; return; }
+          try {
+              if (this.authModo === 'login') {
+                  await window.executarLoginNuvem(this.email, this.senha);
+              } else {
+                  await window.executarCadastroNuvem(this.email, this.senha);
+                  this.sucessoMsg = 'Conta criada! Mude para Login.';
+                  this.authModo = 'login';
+              }
+          } catch (err) { 
+              // Exibe o erro exato do Firebase na tela para sabermos o motivo
+              console.error("Erro Firebase Detalhado:", err);
+              if (err.message.includes("weak-password")) {
+                  this.erroMsg = "A senha deve ter pelo menos 6 caracteres.";
+              } else if (err.message.includes("invalid-credential") || err.message.includes("wrong-password")) {
+                  this.erroMsg = "E-mail ou senha incorretos.";
+              } else if (err.message.includes("email-already-in-use")) {
+                  this.erroMsg = "Este e-mail já está cadastrado. Tente fazer Login.";
+              } else {
+                  this.erroMsg = "Falha no Firebase: " + err.code; 
+              }
+          }
+      },
 
         async publicarPlanilha() {
             this.erroMsg = ''; this.sucessoMsg = '';
